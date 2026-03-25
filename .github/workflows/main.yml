@@ -131,46 +131,12 @@ jobs:
           path: public
       - name: Diff
         run: |
-          git clone --filter=tree:0 --no-tags https://github.com/SukkaLab/ruleset.skk.moe.git ./deploy-git >/dev/null 2>&1
+          git clone --filter=tree:0 --no-tags https://github.com/maintell/ruleset.git ./deploy-git >/dev/null 2>&1
           cd ./deploy-git
           git fetch origin master >/dev/null 2>&1
           rm -rf ./*
           cp -rf ../public/* ./
           git --no-pager diff --minimal
-
-  deploy_to_cloudflare_pages:
-    needs:
-      - build
-    name: Deploy to Cloudflare Pages
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-slim
-    # matrix is a tricky way to define a variable directly in the action yaml
-    strategy:
-      matrix:
-        wranglerVersion: ['3.114.12']
-    steps:
-      - name: Get NPM cache directory path
-        id: npm_cache_path
-        shell: sh
-        run: echo dir=$(npm config get cache) >> $GITHUB_OUTPUT
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ${{ steps.npm_cache_path.outputs.dir }}
-            node_modules
-          key: deploy-to-cloudflare-npm-${{ runner.os }}-${{ runner.arch }}-wrangler-${{ matrix.wranglerVersion }}
-          restore-keys: |
-            deploy-to-cloudflare-npm-${{ runner.os }}-${{ runner.arch }}-wrangler-
-      - uses: actions/download-artifact@v8
-        with:
-          name: build-artifact-${{ github.sha }}-${{ github.run_number }}
-          path: public
-      - uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=sukkaw-ruleset --commit-dirty=true --branch=main
-          wranglerVersion: ${{ matrix.wranglerVersion }}
 
   deploy_to_github_gitlab:
     needs:
@@ -182,32 +148,12 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: build-artifact-${{ github.sha }}-${{ github.run_number }}
-          path: public
-      - name: Upload Dist to GitLab
-        continue-on-error: true
-        run: |
-          git clone --filter=tree:0 --no-tags https://${GITLAB_TOKEN_NAME}:${GITLAB_TOKEN}@gitlab.com/SukkaW/ruleset.skk.moe.git ./deploy-git
-          cd ./deploy-git
-          git config --global push.dgefault matching
-          git config --global user.email "${GITLAB_EMAIL}"
-          git config --global user.name "${GITLAB_USER}"
-          rm -rf ./*
-          cp -rf ../public/* ./
-          git add --all .
-          git commit -m "deploy: https://github.com/SukkaW/Surge/commit/${GITHUB_SHA}"
-          git push --quiet --force origin HEAD:master
-          cd ..
-          rm -rf ./deploy-git
-        env:
-          GITLAB_EMAIL: ${{ secrets.GITLAB_EMAIL }}
-          GITLAB_USER: ${{ secrets.GITLAB_USER }}
-          GITLAB_TOKEN_NAME: ${{ secrets.GITLAB_TOKEN_NAME }}
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          path: public      
       - name: Upload Dist to GitHub
         continue-on-error: true
         run: |
           gh repo unarchive SukkaLab/ruleset.skk.moe --yes
-          git clone --filter=tree:0 --no-tags https://${GH_USER}:${GH_TOKEN}@github.com/SukkaLab/ruleset.skk.moe.git ./deploy-git
+          git clone --filter=tree:0 --no-tags https://${GH_USER}:${GH_TOKEN}@github.com/maintell/ruleset.git ./deploy-git
           cd ./deploy-git
           git config --global push.default matching
           git config --global user.email "${GH_EMAIL}"
@@ -216,7 +162,7 @@ jobs:
           cp -rf ../public/* ./
           echo "ruleset-mirror.skk.moe" > CNAME
           git add --all .
-          git commit -m "deploy: https://github.com/SukkaW/Surge/commit/${GITHUB_SHA}"
+          git commit -m "deploy: https://github.com/maintell/BuildRuleSet/commit/${GITHUB_SHA}"
           git push --quiet --force origin HEAD:master
           cd ..
           rm -rf ./deploy-git
@@ -227,7 +173,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GIT_TOKEN }}
   remove_artifacts:
     needs:
-      - deploy_to_cloudflare_pages
       - deploy_to_github_gitlab
     name: Remove Artifacts after Deployment
     runs-on: ubuntu-slim
